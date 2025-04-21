@@ -5,4 +5,5 @@ producoes
 S: aA
 S: bB
 A: epsilon
+B: S
 B: c

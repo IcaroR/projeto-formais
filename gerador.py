@@ -186,11 +186,65 @@ class GeradorGLC:
         Método auxiliar para o modo detalhado (não utilizado na implementação atual).
         """
         pass
+        
+    def gerar_opcoes_detalhado(self, forma_sentencial):
+        """
+        Retorna as opções de produção para o não-terminal mais à esquerda na forma sentencial atual.
+        Usado para implementação do modo detalhado em interfaces web.
+        
+        Retorna:
+            - simbolo: O símbolo não-terminal a ser substituído
+            - pos_nao_terminal: A posição do símbolo na forma sentencial
+            - producoes_possiveis: Lista de produções possíveis para o símbolo
+            - forma_destacada: A forma sentencial com o símbolo destacado
+            - is_terminal: True se a forma sentencial só contém terminais
+        """
+        # Verifica se a forma sentencial só contém terminais
+        if not any(simbolo in self.variaveis for simbolo in forma_sentencial):
+            return None, -1, [], forma_sentencial, True
+        
+        # Encontra o não-terminal mais à esquerda
+        pos_nao_terminal = -1
+        for i, simbolo in enumerate(forma_sentencial):
+            if simbolo in self.variaveis:
+                pos_nao_terminal = i
+                break
+        
+        if pos_nao_terminal == -1:  # Não há não-terminais
+            return None, -1, [], forma_sentencial, True
+        
+        # Obtém o símbolo não-terminal a ser substituído
+        simbolo = forma_sentencial[pos_nao_terminal]
+        producoes_possiveis = self.producoes.get(simbolo, [])
+        
+        # Destaca o símbolo não-terminal a ser substituído
+        forma_destacada = forma_sentencial[:pos_nao_terminal] + '[' + simbolo + ']' + forma_sentencial[pos_nao_terminal+1:]
+        
+        return simbolo, pos_nao_terminal, producoes_possiveis, forma_destacada, False
+        
+    def aplicar_producao(self, forma_sentencial, pos_nao_terminal, producao_escolhida):
+        """
+        Aplica a produção escolhida à forma sentencial atual.
+        
+        Retorna:
+            - nova_forma: A nova forma sentencial após a substituição
+            - simbolo: O símbolo que foi substituído
+            - producao_escolhida: A produção que foi aplicada
+        """
+        simbolo = forma_sentencial[pos_nao_terminal]
+        
+        # Substitui o não-terminal pela produção escolhida
+        if producao_escolhida == "epsilon":
+            nova_forma = forma_sentencial[:pos_nao_terminal] + forma_sentencial[pos_nao_terminal+1:]
+        else:
+            nova_forma = forma_sentencial[:pos_nao_terminal] + producao_escolhida + forma_sentencial[pos_nao_terminal+1:]
+            
+        return nova_forma, simbolo, producao_escolhida
 
 
 # Exemplo de uso
 if __name__ == "__main__":
-    arquivo = 'gramatica.txt'  # Caminho para o arquivo da gramática
+    arquivo = 'gramatica_teste.txt'  # Caminho para o arquivo da gramática
     gerador = GeradorGLC(arquivo)
     
     while True:
