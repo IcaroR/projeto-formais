@@ -14,49 +14,75 @@ if 'is_terminal' not in st.session_state:
     st.session_state.is_terminal = False
 if 'modo_detalhado_ativo' not in st.session_state:
     st.session_state.modo_detalhado_ativo = False
+if 'producao_selecionada' not in st.session_state:
+    st.session_state.producao_selecionada = ""
+if 'gerador_inicializado' not in st.session_state:
+    st.session_state.gerador_inicializado = False
+if 'gerador' not in st.session_state:
+    st.session_state.gerador = None
 
 # Função para reiniciar o modo detalhado
-def reiniciar_modo_detalhado(simbolo_inicial):
-    st.session_state.forma_sentencial = simbolo_inicial
+def reiniciar_modo_detalhado():
+    st.session_state.forma_sentencial = st.session_state.gerador.inicial
     st.session_state.derivacao = []
     st.session_state.is_terminal = False
     st.session_state.modo_detalhado_ativo = True
 
 # Função para aplicar uma produção selecionada
-def aplicar_producao_callback(gerador, forma_sentencial, pos_nao_terminal, producao):
-    nova_forma, simbolo, producao_escolhida = gerador.aplicar_producao(forma_sentencial, pos_nao_terminal, producao)
+def aplicar_producao_callback():
+    if not st.session_state.producao_selecionada:
+        return
+    
+    # Obtém as opções de produção
+    simbolo, pos_nao_terminal, producoes_possiveis, _, _ = st.session_state.gerador.gerar_opcoes_detalhado(st.session_state.forma_sentencial)
+    
+    # Extrai a produção da opção selecionada
+    producao = st.session_state.producao_selecionada.split("→")[1].strip()
+    
+    # Aplica a produção
+    nova_forma, simbolo, producao_escolhida = st.session_state.gerador.aplicar_producao(
+        st.session_state.forma_sentencial, pos_nao_terminal, producao
+    )
     
     # Adiciona o passo de derivação
-    st.session_state.derivacao.append((forma_sentencial, simbolo, producao_escolhida, nova_forma))
+    st.session_state.derivacao.append((st.session_state.forma_sentencial, simbolo, producao_escolhida, nova_forma))
     
     # Atualiza a forma sentencial
     st.session_state.forma_sentencial = nova_forma
     
     # Verifica se a forma sentencial só contém terminais
-    st.session_state.is_terminal = not any(s in gerador.variaveis for s in nova_forma)
+    st.session_state.is_terminal = not any(s in st.session_state.gerador.variaveis for s in nova_forma)
+
+# Função para processar o arquivo carregado
+def processar_arquivo_carregado(uploaded_file):
+    if uploaded_file is not None:
+        # Salva o arquivo carregado temporariamente
+        with open("gramatica_temp.txt", "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        # Inicializa o gerador com o arquivo carregado
+        st.session_state.gerador = GeradorGLC("gramatica_temp.txt")
+        st.session_state.gerador_inicializado = True
+        return True
+    return False
 
 # Upload do arquivo de gramática
-upload_file = st.file_uploader("Faça upload do arquivo de gramática", type="txt")
+uploaded_file = st.file_uploader("Faça upload do arquivo de gramática", type="txt")
 
-# Inicialização do gerador
-gerador = None
+# Processa o arquivo se foi carregado
+if uploaded_file and (st.session_state.gerador is None or not st.session_state.gerador_inicializado):
+    processar_arquivo_carregado(uploaded_file)
 
-if upload_file is not None:
-    # Salva o arquivo carregado temporariamente
-    with open("gramatica_temp.txt", "wb") as f:
-        f.write(upload_file.getbuffer())
-    
-    # Inicializa o gerador com o arquivo carregado
-    gerador = GeradorGLC("gramatica_temp.txt")
-    
+# Exibe informações da gramática se o gerador foi inicializado
+if st.session_state.gerador_inicializado:
     # Exibe informações da gramática
     st.subheader("Informações da Gramática")
-    st.write(f"Variáveis: {', '.join(gerador.variaveis)}")
-    st.write(f"Símbolo inicial: {gerador.inicial}")
-    st.write(f"Terminais: {', '.join(gerador.terminais)}")
+    st.write(f"Variáveis: {', '.join(st.session_state.gerador.variaveis)}")
+    st.write(f"Símbolo inicial: {st.session_state.gerador.inicial}")
+    st.write(f"Terminais: {', '.join(st.session_state.gerador.terminais)}")
     
     st.subheader("Produções:")
-    for var, prods in gerador.producoes.items():
+    for var, prods in st.session_state.gerador.producoes.items():
         st.write(f"{var} → {' | '.join(prods)}")
     
     # Seleção do modo
@@ -68,13 +94,13 @@ if upload_file is not None:
             st.session_state.modo_detalhado_ativo = False
         
         if st.button("Gerar Cadeia"):
-            cadeia, derivacao = gerador.gerar_cadeia_rapido()
+            cadeia, derivacao = st.session_state.gerador.gerar_cadeia_rapido()
             
             if isinstance(cadeia, str) and not cadeia.startswith("Todas as"):
                 st.success(f"Cadeia gerada: {cadeia}")
                 
                 st.subheader("Derivação mais à esquerda:")
-                st.write(f"Forma inicial: {gerador.inicial}")
+                st.write(f"Forma inicial: {st.session_state.gerador.inicial}")
                 
                 # Verifica o formato da derivação
                 if derivacao and isinstance(derivacao[0], tuple) and len(derivacao[0]) == 4:
@@ -92,8 +118,12 @@ if upload_file is not None:
                 st.warning(cadeia)  # Mensagem de que todas as derivações foram mostradas
     else:  # Modo Detalhado
         # Botão para iniciar/reiniciar o modo detalhado
-        if st.button("Iniciar Derivação Detalhada") or not st.session_state.modo_detalhado_ativo:
-            reiniciar_modo_detalhado(gerador.inicial)
+        if st.button("Iniciar Derivação Detalhada"):
+            reiniciar_modo_detalhado()
+        
+        # Se o modo detalhado não está ativo, ativa-o
+        if not st.session_state.modo_detalhado_ativo and modo == "Detalhado":
+            reiniciar_modo_detalhado()
         
         # Se o modo detalhado está ativo
         if st.session_state.modo_detalhado_ativo:
@@ -105,7 +135,7 @@ if upload_file is not None:
             # Se a forma sentencial não é terminal
             if not st.session_state.is_terminal:
                 # Obtém as opções de produção
-                simbolo, pos_nao_terminal, producoes_possiveis, forma_destacada, _ = gerador.gerar_opcoes_detalhado(st.session_state.forma_sentencial)
+                simbolo, pos_nao_terminal, producoes_possiveis, forma_destacada, _ = st.session_state.gerador.gerar_opcoes_detalhado(st.session_state.forma_sentencial)
                 
                 # Exibe a forma sentencial com destaque
                 st.markdown(f"**Forma sentencial com destaque:** {forma_destacada}")
@@ -115,21 +145,21 @@ if upload_file is not None:
                 
                 # Formata as opções para o dropdown
                 opcoes = [f"{simbolo} → {prod}" for prod in producoes_possiveis]
-                producao_selecionada = st.selectbox("Produções disponíveis", opcoes, key="producao_dropdown")
-                
-                # Extrai a produção da opção selecionada
-                producao = producao_selecionada.split("→")[1].strip()
+                st.selectbox(
+                    "Produções disponíveis", 
+                    opcoes, 
+                    key="producao_selecionada"
+                )
                 
                 # Botão para aplicar a produção
-                if st.button("Aplicar Produção"):
-                    aplicar_producao_callback(gerador, st.session_state.forma_sentencial, pos_nao_terminal, producao)
+                st.button("Aplicar Produção", on_click=aplicar_producao_callback)
             else:
                 st.success(f"Derivação completa! Cadeia gerada: {st.session_state.forma_sentencial}")
             
             # Exibe os passos da derivação
             if st.session_state.derivacao:
                 st.subheader("Passos da Derivação:")
-                st.write(f"Forma inicial: {gerador.inicial}")
+                st.write(f"Forma inicial: {st.session_state.gerador.inicial}")
                 
                 for i, (forma_antiga, simbolo, producao, forma_nova) in enumerate(st.session_state.derivacao):
                     # Encontra a posição do símbolo na forma antiga
