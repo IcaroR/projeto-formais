@@ -12,6 +12,8 @@ if 'derivacao' not in st.session_state:
     st.session_state.derivacao = []
 if 'is_terminal' not in st.session_state:
     st.session_state.is_terminal = False
+if 'derivacoes_geradas' not in st.session_state:
+    st.session_state.derivacoes_geradas = set()
 if 'modo_detalhado_ativo' not in st.session_state:
     st.session_state.modo_detalhado_ativo = False
 if 'producao_selecionada' not in st.session_state:

@@ -1,13 +1,9 @@
-variaveis:S,A,B,C
+variaveis:S,A,B
 inicial:S
-terminais:0,1
+terminais:a,b,c,d
 producoes
-S: CSC
-S: A
-A: 0B1
-A: 1B0
-B: CBC
-B: C
-B: epsilon
-C: 0
-C: 1
+S: aA
+S: bB
+A: epsilon
+B: S
+B: c
