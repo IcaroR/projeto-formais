@@ -45,29 +45,74 @@ class GeradorGLC:
     def gerar_cadeia_rapido(self):
         """
         Gera uma cadeia no modo rápido, mostrando a derivação mais à esquerda.
+        Usa uma abordagem de busca em largura para gerar cadeias em ordem crescente de complexidade.
         Não repete derivações já mostradas anteriormente.
         """
-        # Tentamos gerar uma derivação que ainda não foi mostrada
-        max_tentativas = 100  # Limite para evitar loop infinito
-        for _ in range(max_tentativas):
-            cadeia, derivacao_passos = self._gerar_mais_a_esquerda(self.inicial)
-            
-            # Extrair apenas a cadeia final
-            if derivacao_passos and len(derivacao_passos) > 1 and isinstance(derivacao_passos[-1], tuple) and len(derivacao_passos[-1]) == 4:
-                cadeia = derivacao_passos[-1][3]  # Última forma sentencial
-            elif derivacao_passos and not isinstance(derivacao_passos[0], tuple):
-                # Se não há derivação (só o símbolo inicial), retorna o símbolo inicial
-                cadeia = derivacao_passos[0]
-            
-            # Convertemos a derivação em uma string para poder armazená-la no conjunto
-            derivacao_str = str(derivacao_passos)
-            
-            # Se esta derivação ainda não foi mostrada, a retornamos
-            if derivacao_str not in self.derivacoes_geradas:
-                self.derivacoes_geradas.add(derivacao_str)
-                return cadeia, derivacao_passos
+        import collections
         
-        # Se todas as derivações possíveis já foram mostradas
+        # Fila para busca em largura
+        fila = collections.deque()
+        
+        # Adiciona o símbolo inicial à fila
+        # Cada item da fila é uma tupla (forma_sentencial, derivação)
+        fila.append((self.inicial, []))
+        
+        # Conjunto para rastrear formas sentenciais já visitadas
+        visitados = set([self.inicial])
+        
+        # Contador para limitar o número de iterações
+        contador = 0
+        max_iteracoes = 1000
+        
+        while fila and contador < max_iteracoes:
+            # Obtém a próxima forma sentencial e sua derivação
+            forma_atual, derivacao_atual = fila.popleft()
+            contador += 1
+            
+            # Verifica se a forma sentencial contém apenas terminais
+            if not any(simbolo in self.variaveis for simbolo in forma_atual):
+                # Encontramos uma cadeia terminal que ainda não foi mostrada
+                derivacao_str = str(derivacao_atual)
+                if derivacao_str not in self.derivacoes_geradas:
+                    self.derivacoes_geradas.add(derivacao_str)
+                    return forma_atual, derivacao_atual
+            
+            # Encontra o não-terminal mais à esquerda
+            pos_nao_terminal = -1
+            for i, simbolo in enumerate(forma_atual):
+                if simbolo in self.variaveis:
+                    pos_nao_terminal = i
+                    break
+            
+            if pos_nao_terminal == -1:
+                continue  # Não há não-terminais, mas já verificamos acima
+            
+            # Obtém o símbolo não-terminal a ser substituído
+            simbolo = forma_atual[pos_nao_terminal]
+            
+            # Obtém as produções possíveis para o símbolo
+            producoes_possiveis = self.producoes.get(simbolo, [])
+            
+            # Para cada produção possível, gera uma nova forma sentencial
+            for producao in producoes_possiveis:
+                # Substitui o não-terminal pela produção
+                if producao == "epsilon":
+                    nova_forma = forma_atual[:pos_nao_terminal] + forma_atual[pos_nao_terminal+1:]
+                else:
+                    nova_forma = forma_atual[:pos_nao_terminal] + producao + forma_atual[pos_nao_terminal+1:]
+                
+                # Se esta forma sentencial ainda não foi visitada, adiciona à fila
+                if nova_forma not in visitados:
+                    visitados.add(nova_forma)
+                    
+                    # Cria uma cópia da derivação atual e adiciona o novo passo
+                    nova_derivacao = derivacao_atual.copy()
+                    nova_derivacao.append((forma_atual, simbolo, producao, nova_forma))
+                    
+                    # Adiciona a nova forma sentencial e sua derivação à fila
+                    fila.append((nova_forma, nova_derivacao))
+        
+        # Se não encontramos nenhuma nova cadeia terminal
         return "Todas as derivações possíveis já foram mostradas.", []
 
     def _gerar_mais_a_esquerda(self, forma_sentencial, derivacao=None):
